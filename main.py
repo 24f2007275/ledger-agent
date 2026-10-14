@@ -151,16 +151,6 @@ def answer_question(q):
 
         return len(filtered)
 
-    # Number of orders, optionally filtered by status.
-    if "how many" in s or "number of orders" in s or "count" in s:
-        if "refund" in s:
-            return sum(o["status"] == "refunded" for o in ORDERS)
-        if "void" in s:
-            return sum(o["status"] == "void" for o in ORDERS)
-        if "paid" in s:
-            return len(rows)
-        return len(ORDERS)
-
     # Refund-related questions.
     if "refund" in s:
         refunded = [o for o in ORDERS if o["status"] == "refunded"]
