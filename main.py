@@ -109,6 +109,47 @@ def answer_question(q):
             ]
 
         return len({o["customer"] for o in filtered})
+    
+    # Count orders with optional region, product, and month filters.
+    if "how many" in s or "number of orders" in s or "count" in s:
+        filtered = ORDERS
+
+        if "refund" in s:
+            filtered = [o for o in filtered if o["status"] == "refunded"]
+        elif "void" in s:
+            filtered = [o for o in filtered if o["status"] == "void"]
+        elif "paid" in s:
+            filtered = [o for o in filtered if o["status"] == "paid"]
+
+        for region in ["north", "south", "east", "west", "central"]:
+            if re.search(r"\b" + region + r"\b", s):
+                filtered = [
+                    o for o in filtered
+                    if o["region"].lower() == region
+                ]
+                break
+
+        months = {
+            "january": 1, "february": 2, "march": 3,
+            "april": 4, "may": 5, "june": 6,
+            "july": 7, "august": 8, "september": 9,
+            "october": 10, "november": 11, "december": 12,
+        }
+
+        for name, month in months.items():
+            if name in s:
+                filtered = [
+                    o for o in filtered
+                    if datetime.fromisoformat(
+                        o["created_at"].replace("Z", "+00:00")
+                    ).month == month
+                    and datetime.fromisoformat(
+                        o["created_at"].replace("Z", "+00:00")
+                    ).year == 2026
+                ]
+                break
+
+        return len(filtered)
 
     # Number of orders, optionally filtered by status.
     if "how many" in s or "number of orders" in s or "count" in s:
