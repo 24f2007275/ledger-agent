@@ -150,28 +150,21 @@ def answer_question(q):
 
         return len(filtered)
 
+    
     # Average paid order value in USD.
     if any(word in s for word in [
-        "average", "mean", "avg"
+        "average", "mean", "avg", "on average"
     ]):
         filtered = filter_region(rows, s)
         filtered = filter_product(filtered, s)
         filtered = filter_month_year(filtered, s)
 
-        if "refund" in s:
-            filtered = [
-                o for o in ORDERS if o["status"] == "refunded"
-            ]
-            filtered = filter_region(filtered, s)
-            filtered = filter_product(filtered, s)
-            filtered = filter_month_year(filtered, s)
-
         if not filtered:
             return 0.0
 
-        return money(
-            sum(usd_amount(o) for o in filtered) / len(filtered)
-        )
+        total = sum(usd_amount(o) for o in filtered)
+        return money(total / len(filtered))
+
 
     # Revenue / earnings in USD.
     if any(word in s for word in [
