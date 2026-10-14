@@ -41,6 +41,25 @@ def answer_question(q):
     s = q.lower()
     rows = paid_orders()
 
+    # Average paid order value, converted to USD.
+    if "average" in s or "average order value" in s or "mean order value" in s:
+        filtered = rows
+
+        regions = ["north", "south", "east", "west", "central"]
+        for region in regions:
+            if re.search(r"\b" + region + r"\b", s):
+                filtered = [
+                    o for o in filtered
+                    if o["region"].lower() == region
+                ]
+                break
+
+        if not filtered:
+            return 0.0
+
+        total = sum(usd_amount(o) for o in filtered)
+        return money(total / len(filtered))
+
     # Revenue in USD, optionally filtered by region and month.
     if "revenue" in s:
         filtered = rows
