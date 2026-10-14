@@ -88,6 +88,27 @@ def answer_question(q):
 
         total = sum(usd_amount(o) for o in filtered)
         return money(total)
+    
+    # Count distinct customers who placed paid orders for a product.
+    if "customer" in s and any(
+        word in s for word in ["how many", "different", "unique", "distinct"]
+    ):
+        product_name = next(
+            (
+                p for p in {o["product"] for o in ORDERS}
+                if p.lower() in s
+            ),
+            None,
+        )
+
+        filtered = rows
+        if product_name:
+            filtered = [
+                o for o in filtered
+                if o["product"].lower() == product_name.lower()
+            ]
+
+        return len({o["customer"] for o in filtered})
 
     # Number of orders, optionally filtered by status.
     if "how many" in s or "number of orders" in s or "count" in s:
