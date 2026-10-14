@@ -1,0 +1,13 @@
+{
+  "service": "Acme Appliances order ledger",
+  "links": {
+    "orders": "https://exam.sanand.workers.dev/questionData?email=24f2007275%40ds.study.iitm.ac.in&quizSign=V7M2nzEeYMqZaIzMVU38YPg%2FtTzZXmrMZjyhExDpUQflqBTScqGSUvGIf06klcIwU4zyyvv7JD6sInx7u0gNVNmJNrCPuKFqyqp2akT%2Bt8EzWweWN8MrF6yd68yzh544uWWOZnFqZJ7q4IVnNRCaEqVZfdEpjAzdwq%2BTqkQkrwbaHLlCK3UNBKBcIJ9jdL6%2Fatr1ufVcjNJmagy69ep9cZ6hTodbB%2BXxBFQgOVad3jlBmE3h08o42boOnLfS1MMPxnARsiDC%2BoFwV6fsOai2VnKrDL0%2FnZIWJLox3JsRgAQw%2FKy02Fk1ExfmSCXkPUDIE0lG9Ln6IKyXmcX5hC4TVA%3D%3D&questionId=q-ledger-agent-server&path=%2Forders&page=1",
+    "rates": "https://exam.sanand.workers.dev/questionData?email=24f2007275%40ds.study.iitm.ac.in&quizSign=V7M2nzEeYMqZaIzMVU38YPg%2FtTzZXmrMZjyhExDpUQflqBTScqGSUvGIf06klcIwU4zyyvv7JD6sInx7u0gNVNmJNrCPuKFqyqp2akT%2Bt8EzWweWN8MrF6yd68yzh544uWWOZnFqZJ7q4IVnNRCaEqVZfdEpjAzdwq%2BTqkQkrwbaHLlCK3UNBKBcIJ9jdL6%2Fatr1ufVcjNJmagy69ep9cZ6hTodbB%2BXxBFQgOVad3jlBmE3h08o42boOnLfS1MMPxnARsiDC%2BoFwV6fsOai2VnKrDL0%2FnZIWJLox3JsRgAQw%2FKy02Fk1ExfmSCXkPUDIE0lG9Ln6IKyXmcX5hC4TVA%3D%3D&questionId=q-ledger-agent-server&path=%2Frates",
+    "export": "https://exam.sanand.workers.dev/questionData?email=24f2007275%40ds.study.iitm.ac.in&quizSign=V7M2nzEeYMqZaIzMVU38YPg%2FtTzZXmrMZjyhExDpUQflqBTScqGSUvGIf06klcIwU4zyyvv7JD6sInx7u0gNVNmJNrCPuKFqyqp2akT%2Bt8EzWweWN8MrF6yd68yzh544uWWOZnFqZJ7q4IVnNRCaEqVZfdEpjAzdwq%2BTqkQkrwbaHLlCK3UNBKBcIJ9jdL6%2Fatr1ufVcjNJmagy69ep9cZ6hTodbB%2BXxBFQgOVad3jlBmE3h08o42boOnLfS1MMPxnARsiDC%2BoFwV6fsOai2VnKrDL0%2FnZIWJLox3JsRgAQw%2FKy02Fk1ExfmSCXkPUDIE0lG9Ln6IKyXmcX5hC4TVA%3D%3D&questionId=q-ledger-agent-server&path=%2Fexport"
+  },
+  "notes": [
+    "Business dates use the Asia/Kolkata timezone.",
+    "An order id can appear more than once; the row with the latest updated_at is current.",
+    "Only orders with status 'paid' count as revenue."
+  ]
+}
