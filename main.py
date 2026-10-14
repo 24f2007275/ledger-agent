@@ -1,3 +1,4 @@
+
 import json
 import re
 from collections import defaultdict
@@ -25,178 +26,228 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 class Question(BaseModel):
     question: str
+
 
 def paid_orders():
     return [o for o in ORDERS if o["status"] == "paid"]
 
+
 def usd_amount(order):
     return float(order["amount"]) * RATES[order["currency"]]
+
 
 def money(value):
     return round(value + 1e-8, 2)
 
+
+def order_date(order):
+    return datetime.fromisoformat(
+        order["created_at"].replace("Z", "+00:00")
+    )
+
+
+def filter_region(rows, s):
+    for region in ["north", "south", "east", "west", "central"]:
+        if re.search(r"\b" + region + r"\b", s):
+            return [
+                o for o in rows
+                if o["region"].lower() == region
+            ]
+    return rows
+
+
+def filter_month_year(rows, s):
+    months = {
+        "january": 1, "february": 2, "march": 3,
+        "april": 4, "may": 5, "june": 6,
+        "july": 7, "august": 8, "september": 9,
+        "october": 10, "november": 11, "december": 12,
+    }
+
+    selected_month = next(
+        (month for name, month in months.items() if name in s),
+        None,
+    )
+
+    year_match = re.search(r"\b(20\d{2})\b", s)
+    selected_year = int(year_match.group(1)) if year_match else None
+
+    if selected_month is not None:
+        rows = [
+            o for o in rows
+            if order_date(o).month == selected_month
+        ]
+
+    if selected_year is not None:
+        rows = [
+            o for o in rows
+            if order_date(o).year == selected_year
+        ]
+
+    return rows
+
+
+def filter_product(rows, s):
+    products = sorted(
+        {o["product"] for o in ORDERS},
+        key=len,
+        reverse=True,
+    )
+
+    for product in products:
+        if re.search(r"\b" + re.escape(product.lower()) + r"\b", s):
+            return [
+                o for o in rows
+                if o["product"].lower() == product.lower()
+            ]
+
+    return rows
+
+
 def answer_question(q):
-    s = q.lower()
+    s = q.lower().strip()
     rows = paid_orders()
 
-    # Average paid order value, converted to USD.
-    if "average" in s or "average order value" in s or "mean order value" in s:
-        filtered = rows
+    # Count distinct customers with matching paid orders.
+    if (
+        "customer" in s
+        and any(word in s for word in [
+            "how many", "different", "unique", "distinct"
+        ])
+    ):
+        filtered = filter_product(rows, s)
+        filtered = filter_region(filtered, s)
+        filtered = filter_month_year(filtered, s)
+        return len({o["customer"] for o in filtered})
 
-        regions = ["north", "south", "east", "west", "central"]
-        for region in regions:
-            if re.search(r"\b" + region + r"\b", s):
-                filtered = [
-                    o for o in filtered
-                    if o["region"].lower() == region
-                ]
-                break
+    # Count orders, including refunded and void orders.
+    if (
+        "how many" in s
+        or "number of orders" in s
+        or "count" in s
+    ):
+        filtered = ORDERS
+
+        if "refund" in s:
+            filtered = [
+                o for o in filtered if o["status"] == "refunded"
+            ]
+        elif "void" in s:
+            filtered = [
+                o for o in filtered if o["status"] == "void"
+            ]
+        elif "paid" in s:
+            filtered = [
+                o for o in filtered if o["status"] == "paid"
+            ]
+
+        filtered = filter_region(filtered, s)
+        filtered = filter_product(filtered, s)
+        filtered = filter_month_year(filtered, s)
+
+        return len(filtered)
+
+    # Average paid order value in USD.
+    if any(word in s for word in [
+        "average", "mean", "avg"
+    ]):
+        filtered = filter_region(rows, s)
+        filtered = filter_product(filtered, s)
+        filtered = filter_month_year(filtered, s)
+
+        if "refund" in s:
+            filtered = [
+                o for o in ORDERS if o["status"] == "refunded"
+            ]
+            filtered = filter_region(filtered, s)
+            filtered = filter_product(filtered, s)
+            filtered = filter_month_year(filtered, s)
 
         if not filtered:
             return 0.0
 
-        total = sum(usd_amount(o) for o in filtered)
-        return money(total / len(filtered))
-
-    # Revenue in USD, optionally filtered by region and month.
-    if "revenue" in s:
-        filtered = rows
-
-        regions = ["north", "south", "east", "west", "central"]
-        for region in regions:
-            if re.search(r"\b" + region + r"\b", s):
-                filtered = [o for o in filtered if o["region"].lower() == region]
-                break
-
-        months = {
-            "january": 1, "february": 2, "march": 3,
-            "april": 4, "may": 5, "june": 6,
-            "july": 7, "august": 8, "september": 9,
-            "october": 10, "november": 11, "december": 12,
-        }
-        for name, month in months.items():
-            if name in s:
-                filtered = [
-                    o for o in filtered
-                    if datetime.fromisoformat(
-                        o["created_at"].replace("Z", "+00:00")
-                    ).month == month
-                ]
-                break
-
-        total = sum(usd_amount(o) for o in filtered)
-        return money(total)
-    
-    # Count distinct customers who placed paid orders for a product.
-    if "customer" in s and any(
-        word in s for word in ["how many", "different", "unique", "distinct"]
-    ):
-        product_name = next(
-            (
-                p for p in {o["product"] for o in ORDERS}
-                if p.lower() in s
-            ),
-            None,
+        return money(
+            sum(usd_amount(o) for o in filtered) / len(filtered)
         )
 
+    # Revenue / earnings in USD.
+    if any(word in s for word in [
+        "revenue", "earn", "earned", "sales", "income",
+        "how much", "total amount"
+    ]):
         filtered = rows
-        if product_name:
-            filtered = [
-                o for o in filtered
-                if o["product"].lower() == product_name.lower()
-            ]
-
-        return len({o["customer"] for o in filtered})
-    
-    # Count orders with optional region, product, and month filters.
-    if "how many" in s or "number of orders" in s or "count" in s:
-        filtered = ORDERS
 
         if "refund" in s:
-            filtered = [o for o in filtered if o["status"] == "refunded"]
+            filtered = [
+                o for o in ORDERS if o["status"] == "refunded"
+            ]
         elif "void" in s:
-            filtered = [o for o in filtered if o["status"] == "void"]
-        elif "paid" in s:
-            filtered = [o for o in filtered if o["status"] == "paid"]
+            filtered = [
+                o for o in ORDERS if o["status"] == "void"
+            ]
 
-        for region in ["north", "south", "east", "west", "central"]:
-            if re.search(r"\b" + region + r"\b", s):
-                filtered = [
-                    o for o in filtered
-                    if o["region"].lower() == region
-                ]
-                break
+        filtered = filter_region(filtered, s)
+        filtered = filter_product(filtered, s)
+        filtered = filter_month_year(filtered, s)
 
-        months = {
-            "january": 1, "february": 2, "march": 3,
-            "april": 4, "may": 5, "june": 6,
-            "july": 7, "august": 8, "september": 9,
-            "october": 10, "november": 11, "december": 12,
-        }
+        return money(sum(usd_amount(o) for o in filtered))
 
-        for name, month in months.items():
-            if name in s:
-                filtered = [
-                    o for o in filtered
-                    if datetime.fromisoformat(
-                        o["created_at"].replace("Z", "+00:00")
-                    ).month == month
-                    and datetime.fromisoformat(
-                        o["created_at"].replace("Z", "+00:00")
-                    ).year == 2026
-                ]
-                break
-
-        return len(filtered)
-
-    # Refund-related questions.
-    if "refund" in s:
-        refunded = [o for o in ORDERS if o["status"] == "refunded"]
-        return money(sum(usd_amount(o) for o in refunded))
-
-    # Product questions.
+    # Product sales and rankings.
     if "product" in s or any(
-        p.lower() in s
-        for p in {o["product"] for o in ORDERS}
+        p.lower() in s for p in {o["product"] for o in ORDERS}
     ):
         totals = defaultdict(float)
+
         for o in rows:
             totals[o["product"]] += usd_amount(o)
 
-        if "most" in s or "highest" in s or "top" in s:
+        if any(word in s for word in ["most", "highest", "top"]):
             return max(totals, key=totals.get)
-        for product in totals:
-            if product.lower() in s:
-                return money(totals[product])
-        return dict(sorted(
-            ((k, money(v)) for k, v in totals.items()),
-            key=lambda x: x[0]
-        ))
 
-    # Customer questions.
+        filtered = filter_product(rows, s)
+        if filtered and any(
+            p.lower() in s for p in {o["product"] for o in ORDERS}
+        ):
+            return money(sum(usd_amount(o) for o in filtered))
+
+        return {
+            k: money(v) for k, v in sorted(totals.items())
+        }
+
+    # Customer counts or a particular customer's order count.
     if "customer" in s:
-        customer_ids = set(o["customer"] for o in ORDERS)
+        customer_ids = {o["customer"] for o in ORDERS}
+
         for customer in customer_ids:
             if customer.lower() in s:
-                return sum(o["customer"] == customer for o in ORDERS)
+                return sum(
+                    o["customer"] == customer for o in ORDERS
+                )
+
         return len(customer_ids)
 
-    # Region questions.
+    # Revenue totals by region.
     if "region" in s:
         totals = defaultdict(float)
+
         for o in rows:
             totals[o["region"]] += usd_amount(o)
-        return {k: money(v) for k, v in sorted(totals.items())}
+
+        return {
+            k: money(v) for k, v in sorted(totals.items())
+        }
 
     return "I could not determine the answer from the question."
+
 
 @app.get("/")
 def health():
     return {"status": "ok"}
 
+
 @app.post("/answer")
 def answer(body: Question):
     return {"answer": answer_question(body.question)}
-
