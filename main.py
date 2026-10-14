@@ -64,26 +64,17 @@ def filter_region(rows, s):
 
 def filter_month_year(rows, s):
     months = {
-        "january": 1,
-        "february": 2,
-        "march": 3,
-        "april": 4,
-        "may": 5,
-        "june": 6,
-        "july": 7,
-        "august": 8,
-        "september": 9,
-        "october": 10,
-        "november": 11,
-        "december": 12,
+        "january": 1, "february": 2, "march": 3,
+        "april": 4, "may": 5, "june": 6,
+        "july": 7, "august": 8, "september": 9,
+        "october": 10, "november": 11, "december": 12,
     }
 
     selected_month = next(
-        (month for name, month in months.items()
+        (number for name, number in months.items()
          if re.search(r"\b" + name + r"\b", s)),
         None,
     )
-
     year_match = re.search(r"\b(20\d{2})\b", s)
     selected_year = int(year_match.group(1)) if year_match else None
 
@@ -130,28 +121,69 @@ def answer_question(q):
     s = q.lower().strip()
     rows = paid_orders()
 
-    # Average value of paid orders: check before "how many".
-    # Otherwise, "how many US dollars" could be mistaken for a count.
+    # Average order value: always use paid orders.
     if any(word in s for word in ["average", "mean", "avg"]):
         filtered = apply_filters(rows, s)
-
         if not filtered:
             return 0.0
+        return money(
+            sum(usd_amount(o) for o in filtered) / len(filtered)
+        )
 
-        total = sum(usd_amount(o) for o in filtered)
-        return money(total / len(filtered))
+    # Revenue and earnings questions.
+    # Handle before generic counts, because "how much" asks for money.
+    revenue_question = any(
+        word in s for word in [
+            "revenue", "earn", "earned", "sales",
+            "income", "how much", "total amount",
+        ]
+    )
 
-    # Distinct customers with matching paid orders.
+    if revenue_question:
+        if "refund" in s:
+            filtered = [
+                o for o in ORDERS if o["status"] == "refunded"
+            ]
+        elif "void" in s:
+            filtered = [
+                o for o in ORDERS if o["status"] == "void"
+            ]
+        else:
+            filtered = rows
+
+        filtered = apply_filters(filtered, s)
+
+        ranking_question = (
+            any(word in s for word in [
+                "top-selling", "top selling", "best-selling",
+                "best selling", "most sold", "highest-selling",
+                "highest selling",
+            ])
+            or (
+                any(word in s for word in ["top", "highest", "best"])
+                and "product" in s
+            )
+        )
+
+        if ranking_question:
+            totals = defaultdict(float)
+            for o in filtered:
+                totals[o["product"]] += usd_amount(o)
+            return max(totals, key=totals.get) if totals else ""
+
+        return money(sum(usd_amount(o) for o in filtered))
+
+    # Count distinct customers among matching paid orders.
     if (
         "customer" in s
         and any(word in s for word in [
-            "how many", "different", "unique", "distinct"
+            "how many", "different", "unique", "distinct",
         ])
     ):
         filtered = apply_filters(rows, s)
         return len({o["customer"] for o in filtered})
 
-    # Count orders, including refunded and void orders.
+    # Order counts.
     if (
         "how many" in s
         or "number of orders" in s
@@ -172,55 +204,15 @@ def answer_question(q):
         else:
             filtered = ORDERS
 
-        filtered = apply_filters(filtered, s)
-        return len(filtered)
+        return len(apply_filters(filtered, s))
 
-    # Revenue / earnings questions.
-    if any(word in s for word in [
-        "revenue", "earn", "earned", "sales", "income",
-        "how much", "total amount"
-    ]):
-        if "refund" in s:
-            filtered = [
-                o for o in ORDERS if o["status"] == "refunded"
-            ]
-        elif "void" in s:
-            filtered = [
-                o for o in ORDERS if o["status"] == "void"
-            ]
-        else:
-            filtered = rows
+    # Product sales and product revenue ranking.
+    all_products = {o["product"] for o in ORDERS}
+    mentions_product = any(
+        p.lower() in s for p in all_products
+    )
 
-        filtered = apply_filters(filtered, s)
-
-        # Rank products by revenue within the requested filters.
-        if (
-            any(word in s for word in [
-                "top-selling", "top selling", "best-selling",
-                "best selling", "most sold", "highest-selling",
-                "highest selling"
-            ])
-            or (
-                any(word in s for word in ["top", "highest", "best"])
-                and "product" in s
-            )
-        ):
-            totals = defaultdict(float)
-
-            for o in filtered:
-                totals[o["product"]] += usd_amount(o)
-
-            if not totals:
-                return ""
-
-            return max(totals, key=totals.get)
-
-        return money(sum(usd_amount(o) for o in filtered))
-
-    # Product sales and rankings.
-    if "product" in s or any(
-        p.lower() in s for p in {o["product"] for o in ORDERS}
-    ):
+    if "product" in s or mentions_product:
         filtered = apply_filters(rows, s)
         totals = defaultdict(float)
 
@@ -228,16 +220,14 @@ def answer_question(q):
             totals[o["product"]] += usd_amount(o)
 
         if any(word in s for word in ["most", "highest", "top", "best"]):
-            if not totals:
-                return ""
-            return max(totals, key=totals.get)
+            return max(totals, key=totals.get) if totals else ""
 
-        if any(p.lower() in s for p in {o["product"] for o in ORDERS}):
+        if mentions_product:
             return money(sum(usd_amount(o) for o in filtered))
 
         return {k: money(v) for k, v in sorted(totals.items())}
 
-    # Customer counts or a particular customer's order count.
+    # Customer counts or a specific customer's order count.
     if "customer" in s:
         customer_ids = {o["customer"] for o in ORDERS}
 
@@ -249,16 +239,12 @@ def answer_question(q):
 
         return len(customer_ids)
 
-    # Revenue totals by region.
+    # Paid revenue grouped by region.
     if "region" in s:
         totals = defaultdict(float)
-
         for o in rows:
             totals[o["region"]] += usd_amount(o)
-
-        return {
-            k: money(v) for k, v in sorted(totals.items())
-        }
+        return {k: money(v) for k, v in sorted(totals.items())}
 
     return "I could not determine the answer from the question."
 
