@@ -186,7 +186,27 @@ def answer_question(q):
         filtered = filter_product(filtered, s)
         filtered = filter_month_year(filtered, s)
 
+        # Find the top-selling product by revenue.
+        if any(word in s for word in [
+            "top-selling", "top selling", "best-selling",
+            "best selling", "most sold", "highest-selling",
+            "highest selling"
+        ]) or (
+            any(word in s for word in ["top", "highest", "best"])
+            and "product" in s
+        ):
+            totals = defaultdict(float)
+
+            for o in filtered:
+                totals[o["product"]] += usd_amount(o)
+
+            if totals:
+                return max(totals, key=totals.get)
+
+            return ""
+
         return money(sum(usd_amount(o) for o in filtered))
+
 
     # Product sales and rankings.
     if "product" in s or any(
